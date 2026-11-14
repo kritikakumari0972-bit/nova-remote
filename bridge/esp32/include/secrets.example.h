@@ -1,0 +1,6 @@
+#pragma once
+
+// Copy to secrets.h (ignored by Git). Never commit the real file.
+#define NOVAREMOTE_WIFI_SSID "YOUR_HOME_WIFI_NAME"
+#define NOVAREMOTE_WIFI_PASSWORD "YOUR_HOME_WIFI_PASSWORD"
+#define NOVAREMOTE_API_TOKEN "REPLACE_WITH_RANDOM_TOKEN_AT_LEAST_32_CHARACTERS"
