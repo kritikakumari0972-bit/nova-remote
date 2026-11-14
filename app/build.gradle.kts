@@ -4,7 +4,7 @@ plugins {
 }
 android {
     namespace = "com.novaremote"
-    compileSdk = 37
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.novaremote"
         minSdk = 26
