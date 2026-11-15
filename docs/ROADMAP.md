@@ -15,7 +15,7 @@
 - [x] Encrypt stored bridge token with Android Keystore AES-GCM.
 - [x] Bound raw timing length, frame duration, request size and send rate.
 - [x] ESP32 firmware compile passes on GitHub Actions.
-- [ ] Android CI passes on GitHub Actions.
+- [x] Android build and unit-test workflow passes on GitHub Actions.
 - [ ] Test discovery, learn, save and replay on physical hardware.
 
 ## 0.3.0 — Protocol engine and portable profiles
@@ -26,17 +26,25 @@
 - [x] JSON profile import/export using Android document picker.
 - [x] Search and filter saved profiles; export and delete profiles.
 - [x] Import validation and verification-status downgrade.
-- [ ] Android unit tests and debug APK build pass.
+- [x] Android unit tests and debug APK build pass on GitHub Actions.
+- [x] ESP32 firmware build passes on GitHub Actions.
 - [ ] Confirm protocol timing against physical captures and appliances.
 - [ ] Exact-model TV/set-top-box/projector profiles with hardware test evidence.
 - [ ] AC full-state serializers, state transitions and model-specific tests.
 - [ ] Profile provenance and reviewed verification records.
 
 ## 0.4.0 — Smart network appliances
-- [ ] Research documented local APIs for selected TV models.
-- [ ] Add vendor modules only where pairing/authentication and local control are documented.
-- [ ] Connection state, reconnection and offline handling.
-- [ ] Investigate Bluetooth only for devices with documented control services.
+- [x] Implement a documented Home Assistant local REST API adapter.
+- [x] Authenticate with a user-created long-lived access token and validate the API health endpoint.
+- [x] List accessible media_player entities and expose bounded power, playback and volume actions.
+- [x] Encrypt the Home Assistant token at rest using Android Keystore AES-GCM.
+- [x] Add disconnect, refresh, reconnect and clear-credential controls.
+- [x] Restrict server addresses to private/local origins and disable HTTP redirects.
+- [x] Add unit tests for address policy, token validation, entity parsing and action mapping.
+- [x] Document the Home Assistant setup and security model.
+- [ ] Validate on a physical Android phone with a real Home Assistant server and at least one TV integration.
+- [ ] Add direct vendor modules only where local API, pairing and authentication are documented and permitted.
+- [ ] Bluetooth control only for devices with documented control services.
 
 ## 0.5.0 — Multi-room and automation
 - [ ] Rooms, device groups and user-approved macros.

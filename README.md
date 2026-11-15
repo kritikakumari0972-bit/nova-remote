@@ -2,9 +2,9 @@
 
 NovaRemote is an Android universal remote app built around real device transports, model-scoped profiles and explicit hardware capability checks.
 
-Current milestone: 0.3.0 — Protocol Engine & Portable Remote Profiles.
+Current milestone: 0.4.0 — Smart Network Appliances.
 
-## 0.3.0 features
+## Features
 
 - Android built-in IR emitter detection and transmission.
 - ESP32 IR bridge discovery over mDNS, manual private-IP fallback and authenticated local API.
@@ -13,14 +13,23 @@ Current milestone: 0.3.0 — Protocol Engine & Portable Remote Profiles.
 - Protocol-specific repeat handling: NEC repeat frames and full-frame Sony repeats.
 - JSON profile import/export through the Android document picker.
 - Search saved profiles by brand, model, category or protocol; export and delete profiles.
-- Android Keystore AES-GCM encryption for the stored bridge token.
-- Bounded input validation and Android/ESP32 GitHub Actions workflows.
+- Android Keystore AES-GCM encryption for stored ESP32 and Home Assistant credentials.
+- Home Assistant local REST API connection, authenticated health check and media-player entity listing.
+- Power, playback and volume actions sent only to the selected Home Assistant media_player entity.
+- Private-network address validation, redirect blocking, bounded responses and reconnect/refresh controls.
+- Android and ESP32 GitHub Actions workflows.
+
+## Smart network appliances
+
+NovaRemote 0.4.0 connects to a user's local Home Assistant instance. The TV or media device must already be configured in Home Assistant through an integration supported by that instance. NovaRemote calls Home Assistant's documented REST API; it is not a direct vendor integration and does not claim every model or action is supported. Available controls depend on the media_player entity and the Home Assistant integration.
+
+See docs/SMART_HOME.md for setup, token handling and limitations.
 
 ## Honest compatibility
 
-A protocol decoder identifies a signal format; it does not prove that a particular television, set-top box, projector or air conditioner is compatible. The brand catalogue is a research index, not a verified support matrix. Newly captured and imported profiles remain EXPERIMENTAL. Exact-model verification requires a physical test and recorded evidence.
+An IR protocol decoder identifies a signal format; it does not prove that a particular television, set-top box, projector or air conditioner is compatible. The brand catalogue is a research index, not a verified support matrix. Newly captured and imported profiles remain EXPERIMENTAL. Exact-model verification requires a physical test and recorded evidence.
 
-A phone can transmit traditional IR only if Android reports a built-in IR emitter. Phones without one need the optional ESP32 bridge. A demodulating receiver does not measure carrier frequency; unrecognised RAW captures ask the user to enter the carrier. AC stateful encoders and exact-model libraries remain future work.
+A phone can transmit traditional IR only if Android reports a built-in IR emitter. Phones without one need the optional ESP32 bridge. A demodulating receiver does not measure carrier frequency; unrecognised RAW captures ask the user to enter the carrier. AC stateful encoders and exact-model IR libraries remain future work.
 
 ## Android build
 
@@ -32,6 +41,6 @@ Open bridge/esp32 in PlatformIO. Copy include/secrets.example.h to include/secre
 
 ## Security
 
-The bridge currently uses bearer-token-authenticated plain HTTP on the local LAN. This is not end-to-end encryption. Keep it on a trusted home network; never port-forward or expose it publicly. The app encrypts the saved token at rest, but LAN observers can still see HTTP traffic.
+The ESP32 bridge uses bearer-token-authenticated plain HTTP on the local LAN. Home Assistant may also use plain HTTP on the LAN unless HTTPS is configured. Neither should be port-forwarded or exposed publicly. Both credentials are encrypted at rest with Android Keystore, but LAN observers can still see tokens sent over HTTP. Use HTTPS where available and keep services on a trusted home network.
 
-See SECURITY.md, docs/COMPATIBILITY.md, docs/PROTOCOLS.md and docs/ROADMAP.md.
+See SECURITY.md, docs/COMPATIBILITY.md, docs/PROTOCOLS.md, docs/SMART_HOME.md and docs/ROADMAP.md.

@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.novaremote.data.BrandCatalog
 import com.novaremote.domain.*
 import com.novaremote.security.BridgeSecretStore
+import com.novaremote.security.HomeAssistantSecretStore
 import com.novaremote.transport.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
         val irTransport = AndroidIrTransport(applicationContext)
         val profileStore = IrProfileStore(applicationContext)
         val secretStore = BridgeSecretStore(applicationContext)
+        val homeAssistantSecretStore = HomeAssistantSecretStore(applicationContext)
         val discovery = Esp32BridgeDiscovery(applicationContext)
 
         setContent {
@@ -203,6 +205,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+
+                    HomeAssistantSection(homeAssistantSecretStore)
 
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -410,7 +414,7 @@ class MainActivity : ComponentActivity() {
                             Text(BrandCatalog.targets.joinToString(" • ") { it.name }, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-                    Text("NovaRemote 0.3.0 • Protocol match is not a hardware-verified model profile.", style = MaterialTheme.typography.labelSmall)
+                    Text("NovaRemote 0.4.0 • Home Assistant actions depend on the configured integration and device capabilities.", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
