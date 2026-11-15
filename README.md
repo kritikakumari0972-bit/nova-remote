@@ -24,7 +24,7 @@ A phone can transmit traditional IR only if Android reports a built-in IR emitte
 
 ## Android build
 
-Open in Android Studio with JDK 17+ and Android SDK 36. Tooling: AGP 9.5.0, Kotlin 2.4.21, Gradle 9.7.0, Compose BOM 2026.07.00 and Activity Compose 1.13.0. CI runs assembleDebug and testDebugUnitTest.
+Open in Android Studio with JDK 17+ and Android SDK 36. Tooling: AGP 9.5.0, Kotlin 2.4.21, Gradle 9.7.0, Compose BOM 2026.06.01 and Activity Compose 1.13.0. CI runs assembleDebug and testDebugUnitTest.
 
 ## ESP32 build
 
