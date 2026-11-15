@@ -5,6 +5,7 @@ enum class DeviceCategory {
 }
 enum class TransportKind { BUILT_IN_IR, ESP32_IR_BRIDGE, WIFI_VENDOR_API, BLUETOOTH }
 enum class VerificationStatus { EXPERIMENTAL, PROTOCOL_COMPATIBLE, VERIFIED_ON_HARDWARE }
+enum class IrRepeatMode { FULL_FRAME, NEC_REPEAT_FRAME }
 
 data class ApplianceBrand(val name: String, val categories: Set<DeviceCategory>)
 data class RawIrCommand(
@@ -12,7 +13,9 @@ data class RawIrCommand(
     val label: String,
     val frequencyHz: Int,
     val timingsMicros: List<Int>,
-    val repeatCount: Int = 0
+    val repeatCount: Int = 0,
+    val repeatMode: IrRepeatMode = IrRepeatMode.FULL_FRAME,
+    val repeatIntervalMillis: Int = 100
 )
 data class IrRemoteProfile(
     val id: String,

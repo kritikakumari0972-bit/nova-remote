@@ -29,7 +29,7 @@ constexpr uint32_t kWifiConnectTimeoutMs = 20000;
 constexpr uint32_t kWifiRetryIntervalMs = 15000;
 constexpr uint32_t kMinSendIntervalMs = 120;
 constexpr uint32_t kMaxFrameDurationMicros = 2000000UL;
-constexpr char kFirmwareVersion[] = "0.2.0";
+constexpr char kFirmwareVersion[] = "0.3.0";
 
 IRsend irsend(kIrTxPin);
 IRrecv irrecv(kIrRxPin, 1024, 50, true);
@@ -126,13 +126,25 @@ void handleSendRaw() {
   }
 
   const uint32_t frequencyHz = request["frequencyHz"] | 0U;
+  const uint8_t repeatCount = request["repeatCount"] | 0;
+  const uint16_t repeatIntervalMs = request["repeatIntervalMs"] | 100;
+  const String repeatMode = request["repeatMode"] | "FULL_FRAME";
   JsonArrayConst timings = request["rawMicros"].as<JsonArrayConst>();
+
   if (frequencyHz < 30000 || frequencyHz > 60000) {
     sendError(400, "Carrier must be 30000–60000 Hz.");
     return;
   }
   if (timings.size() < 2 || timings.size() > kMaxSendInputTimings) {
     sendError(400, "rawMicros must contain 2–512 values.");
+    return;
+  }
+  if (repeatCount > 10 || repeatIntervalMs < 20 || repeatIntervalMs > 1000) {
+    sendError(400, "Repeat count or repeat interval is outside allowed limits.");
+    return;
+  }
+  if (repeatMode != "FULL_FRAME" && repeatMode != "NEC_REPEAT_FRAME") {
+    sendError(400, "Unsupported repeat mode.");
     return;
   }
 
@@ -170,13 +182,23 @@ void handleSendRaw() {
     raw[outputIndex++] = static_cast<uint16_t>(remaining);
   }
 
-  irsend.sendRaw(raw, static_cast<uint16_t>(outputIndex), static_cast<uint16_t>(frequencyHz));
+  const uint16_t necRepeat[] = {9000, 2250, 560};
+  for (uint8_t frame = 0; frame <= repeatCount; ++frame) {
+    if (frame > 0 && repeatMode == "NEC_REPEAT_FRAME") {
+      irsend.sendRaw(necRepeat, 3, static_cast<uint16_t>(frequencyHz));
+    } else {
+      irsend.sendRaw(raw, static_cast<uint16_t>(outputIndex), static_cast<uint16_t>(frequencyHz));
+    }
+    if (frame < repeatCount) delay(repeatIntervalMs);
+  }
+
   hasSentIr = true;
   lastIrSendMs = millis();
   JsonDocument response;
   response["ok"] = true;
   response["sent"] = true;
-  response["timingCount"] = outputIndex;
+  response["framesSent"] = static_cast<uint8_t>(repeatCount + 1);
+  response["repeatMode"] = repeatMode;
   response["durationMicros"] = totalDuration;
   sendJson(200, response);
 }

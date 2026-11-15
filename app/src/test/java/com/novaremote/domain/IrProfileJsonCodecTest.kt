@@ -6,11 +6,16 @@ import org.junit.Test
 
 class IrProfileJsonCodecTest {
     private fun sample(status: VerificationStatus = VerificationStatus.EXPERIMENTAL) = IrRemoteProfile(
-        "sample-model", "Sample", "Model 1", DeviceCategory.TELEVISION, "RAW", status,
-        commands = listOf(RawIrCommand("power", "Power", 38000, listOf(9000, 4500, 560, 560)))
+        "sample-model", "Sample", "Model 1", DeviceCategory.TELEVISION, "NEC", status,
+        commands = listOf(RawIrCommand(
+            "power", "Power", 38000, listOf(9000, 4500, 560, 560),
+            repeatCount = 2,
+            repeatMode = IrRepeatMode.NEC_REPEAT_FRAME,
+            repeatIntervalMillis = 108
+        ))
     )
 
-    @Test fun roundTripPreservesCommandData() {
+    @Test fun roundTripPreservesProtocolRepeatMetadata() {
         assertEquals(sample(), IrProfileJsonCodec.decode(IrProfileJsonCodec.encode(sample())))
     }
 

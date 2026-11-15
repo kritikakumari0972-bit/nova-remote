@@ -35,4 +35,11 @@ class IrProfileStore(context: Context) {
         if (target.exists() && !target.delete()) { temporary.delete(); error("Could not replace profile.") }
         if (!temporary.renameTo(target)) { temporary.delete(); error("Could not finalize profile save.") }
     }
+
+    @Synchronized
+    fun delete(id: String): Boolean {
+        if (!id.matches(Regex("[A-Za-z0-9._-]{1,80}"))) return false
+        val target = File(directory, id + ".json")
+        return target.isFile && target.delete()
+    }
 }

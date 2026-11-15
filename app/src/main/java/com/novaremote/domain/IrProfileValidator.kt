@@ -3,7 +3,6 @@ package com.novaremote.domain
 object IrProfileValidator {
     const val MAX_PROFILE_BYTES = 512 * 1024
     const val MAX_COMMANDS = 128
-    // Keep this aligned with the ESP32 firmware's bounded capture/send buffer.
     const val MAX_TIMINGS_PER_COMMAND = 512
 
     fun validate(profile: IrRemoteProfile): List<String> = buildList {
@@ -22,8 +21,9 @@ object IrProfileValidator {
             if (command.frequencyHz !in 30000..60000) add(label + " frequency must be 30–60 kHz.")
             if (command.timingsMicros.size !in 2..MAX_TIMINGS_PER_COMMAND) add(label + " must contain 2–512 timings.")
             if (command.timingsMicros.any { it !in 50..131070 }) add(label + " has an invalid timing.")
-            if (command.repeatCount !in 0..10) add(label + " repeat count must be 0–10.")
             if (command.timingsMicros.sumOf { it.toLong() } > 2000000L) add(label + " exceeds the two-second frame limit.")
+            if (command.repeatCount !in 0..10) add(label + " repeat count must be 0–10.")
+            if (command.repeatIntervalMillis !in 20..1000) add(label + " repeat interval must be 20–1000 ms.")
         }
     }
 }

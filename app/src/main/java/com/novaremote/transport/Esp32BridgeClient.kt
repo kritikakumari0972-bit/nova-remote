@@ -7,6 +7,8 @@ import java.net.URI
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.novaremote.domain.IrRepeatMode
+import com.novaremote.domain.RawIrCommand
 
 data class BridgeInfo(
     val bridgeId: String,
@@ -35,16 +37,22 @@ class Esp32BridgeClient(private val baseAddress: String, private val bearerToken
         }
     }
 
-    suspend fun sendRaw(frequencyHz: Int, timingsMicros: List<Int>): BridgeResult<Boolean> = withContext(Dispatchers.IO) {
-        if (frequencyHz !in 30000..60000) return@withContext BridgeResult(error = "Carrier must be 30–60 kHz.")
-        if (timingsMicros.size !in 2..512 ||
-            timingsMicros.any { it !in 50..131070 } ||
-            timingsMicros.sumOf { it.toLong() } > 2000000L) {
+    suspend fun sendRaw(command: RawIrCommand): BridgeResult<Boolean> = withContext(Dispatchers.IO) {
+        if (command.frequencyHz !in 30000..60000) return@withContext BridgeResult(error = "Carrier must be 30–60 kHz.")
+        if (command.timingsMicros.size !in 2..512 ||
+            command.timingsMicros.any { it !in 50..131070 } ||
+            command.timingsMicros.sumOf { it.toLong() } > 2000000L) {
             return@withContext BridgeResult(error = "IR timings failed validation.")
         }
+        if (command.repeatCount !in 0..10 || command.repeatIntervalMillis !in 20..1000) {
+            return@withContext BridgeResult(error = "IR repeat data failed validation.")
+        }
         val body = JSONObject()
-            .put("frequencyHz", frequencyHz)
-            .put("rawMicros", JSONArray(timingsMicros))
+            .put("frequencyHz", command.frequencyHz)
+            .put("rawMicros", JSONArray(command.timingsMicros))
+            .put("repeatCount", command.repeatCount)
+            .put("repeatMode", command.repeatMode.name)
+            .put("repeatIntervalMs", command.repeatIntervalMillis)
         request("POST", "/api/v1/ir/send", body) { it.optBoolean("sent", false) }
     }
 
@@ -55,7 +63,7 @@ class Esp32BridgeClient(private val baseAddress: String, private val bearerToken
     suspend fun getLatestCapture(): BridgeResult<BridgeCapture> = withContext(Dispatchers.IO) {
         request("GET", "/api/v1/ir/learn/latest", null) { json ->
             val values = json.optJSONArray("rawMicros") ?: JSONArray()
-            if (values.length() > 1024) throw IllegalArgumentException("Capture exceeds timing limit.")
+            if (values.length() > 512) throw IllegalArgumentException("Capture exceeds timing limit.")
             val timings = buildList {
                 for (index in 0 until values.length()) {
                     val value = values.optLong(index, -1L)
@@ -91,7 +99,7 @@ class Esp32BridgeClient(private val baseAddress: String, private val bearerToken
             val active = (URL(baseAddress.trim().trimEnd('/') + path).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
                 connectTimeout = 3000
-                readTimeout = 3000
+                readTimeout = 15000
                 instanceFollowRedirects = false
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("Authorization", "Bearer " + bearerToken)

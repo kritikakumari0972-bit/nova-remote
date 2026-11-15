@@ -27,7 +27,9 @@ object IrProfileJsonCodec {
                 .put("label", command.label)
                 .put("frequencyHz", command.frequencyHz)
                 .put("timingsMicros", JSONArray(command.timingsMicros))
-                .put("repeatCount", command.repeatCount))
+                .put("repeatCount", command.repeatCount)
+                .put("repeatMode", command.repeatMode.name)
+                .put("repeatIntervalMillis", command.repeatIntervalMillis))
         }
         return root.put("commands", commands).toString()
     }
@@ -52,12 +54,17 @@ object IrProfileJsonCodec {
                         add(value.toInt())
                     }
                 }
+                val repeatMode = runCatching {
+                    IrRepeatMode.valueOf(item.optString("repeatMode", IrRepeatMode.FULL_FRAME.name))
+                }.getOrElse { throw ProfileFormatException("Unknown repeat mode.") }
                 add(RawIrCommand(
                     item.optString("id"),
                     item.optString("label"),
                     item.optInt("frequencyHz", -1),
                     timings,
-                    item.optInt("repeatCount", 0)
+                    item.optInt("repeatCount", 0),
+                    repeatMode,
+                    item.optInt("repeatIntervalMillis", 100)
                 ))
             }
         }
@@ -67,7 +74,6 @@ object IrProfileJsonCodec {
             model = root.optString("model"),
             category = category,
             protocol = root.optString("protocol"),
-            // Imported data cannot self-assert hardware verification.
             verification = VerificationStatus.EXPERIMENTAL,
             evidenceUrl = root.optString("evidenceUrl").takeIf { it.isNotBlank() },
             commands = commands

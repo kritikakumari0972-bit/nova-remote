@@ -2,7 +2,9 @@ package com.novaremote
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -43,10 +45,61 @@ class MainActivity : ComponentActivity() {
                 var model by remember { mutableStateOf("") }
                 var commandLabel by remember { mutableStateOf("Power") }
                 var frequency by remember { mutableStateOf("38000") }
+                var searchQuery by remember { mutableStateOf("") }
                 var category by remember { mutableStateOf(DeviceCategory.TELEVISION) }
                 var categoryMenu by remember { mutableStateOf(false) }
                 var candidates by remember { mutableStateOf<List<BridgeCandidate>>(emptyList()) }
+                var profileToExport by remember { mutableStateOf<IrRemoteProfile?>(null) }
                 val phoneIr = remember { irTransport.status() }
+                val decodedCapture = remember(capture) { IrProtocolEngine.decode(capture) }
+                val visibleProfiles = profiles.filter {
+                    it.brand.contains(searchQuery, true) ||
+                        it.model.contains(searchQuery, true) ||
+                        it.protocol.contains(searchQuery, true) ||
+                        it.category.name.contains(searchQuery.replace(' ', '_'), true)
+                }
+
+                val exportLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/json")
+                ) { uri ->
+                    val profile = profileToExport
+                    if (uri != null && profile != null) {
+                        runCatching {
+                            val stream = contentResolver.openOutputStream(uri) ?: error("Could not open the destination file.")
+                            stream.bufferedWriter(Charsets.UTF_8).use { it.write(IrProfileJsonCodec.encode(profile)) }
+                        }.onSuccess {
+                            status = "Exported " + profile.id + ".json"
+                        }.onFailure {
+                            status = "Export failed: " + it.message
+                        }
+                    }
+                    profileToExport = null
+                }
+
+                val importLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument()
+                ) { uri ->
+                    if (uri != null) {
+                        runCatching {
+                            val stream = contentResolver.openInputStream(uri) ?: error("Could not open the selected profile.")
+                            val imported = stream.bufferedReader(Charsets.UTF_8).use {
+                                IrProfileJsonCodec.decode(it.readText())
+                            }
+                            val stored = if (profileStore.find(imported.id) == null) {
+                                imported
+                            } else {
+                                imported.copy(id = (imported.id + "-imported-" + System.currentTimeMillis().toString(36)).take(80))
+                            }
+                            profileStore.save(stored)
+                            profiles = profileStore.loadAll()
+                            stored
+                        }.onSuccess {
+                            status = "Imported as experimental profile " + it.id
+                        }.onFailure {
+                            status = "Import failed: " + it.message
+                        }
+                    }
+                }
 
                 Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -79,8 +132,11 @@ class MainActivity : ComponentActivity() {
                                         status = it.message ?: "Discovery failed."
                                         emptyList()
                                     }
-                                    if (candidates.isEmpty()) status = "No bridge discovered. Use manual private-IP entry."
-                                    else status = "Found " + candidates.size + " bridge(s). Select one below."
+                                    status = if (candidates.isEmpty()) {
+                                        "No bridge discovered. Use manual private-IP entry."
+                                    } else {
+                                        "Found " + candidates.size + " bridge(s). Select one below."
+                                    }
                                     scanning = false
                                 }
                             }) { Text(if (scanning) "Searching…" else "Find bridge on Wi-Fi") }
@@ -152,7 +208,7 @@ class MainActivity : ComponentActivity() {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Learn an original remote button", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Aim the original remote at the ESP32 receiver and press one button once. The bridge captures raw timings, but it does not decode the manufacturer protocol. Enter carrier frequency manually.",
+                                "Aim the original remote at the ESP32 receiver and press a button once. NovaRemote attempts NEC and Sony SIRC decoding; other captures remain RAW. A protocol match is not proof of exact-model compatibility.",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Button(enabled = connected && !busy && !learning, onClick = {
@@ -177,7 +233,12 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                     result.value!!.ready -> {
                                                         capture = result.value!!.timingsMicros
-                                                        status = "Captured " + capture.size + " timings. Name and save the button below."
+                                                        val decoded = IrProtocolEngine.decode(capture)
+                                                        status = if (decoded == null) {
+                                                            "Captured " + capture.size + " timings. Protocol not recognised; save as RAW."
+                                                        } else {
+                                                            "Detected " + decoded.protocol + " (" + decoded.bitCount + " bits). Verify the exact appliance before relying on it."
+                                                        }
                                                         finished = true
                                                     }
                                                     result.value!!.timedOut -> {
@@ -208,6 +269,19 @@ class MainActivity : ComponentActivity() {
                             }
 
                             if (capture.isNotEmpty()) {
+                                if (decodedCapture?.protocol == "NEC_REPEAT") {
+                                    Text(
+                                        "This is only a NEC hold-repeat marker. Learn the button's initial full frame instead.",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                } else if (decodedCapture != null) {
+                                    Text(
+                                        "Recognised " + decodedCapture.protocol + ". Nominal carrier: " +
+                                            decodedCapture.carrierFrequencyHz + " Hz. This is not exact-model verification.",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
                                 OutlinedTextField(brand, { brand = it }, Modifier.fillMaxWidth(), label = { Text("Brand") }, singleLine = true)
                                 OutlinedTextField(model, { model = it }, Modifier.fillMaxWidth(), label = { Text("Exact model (or leave unspecified)") }, singleLine = true)
                                 OutlinedTextField(commandLabel, { commandLabel = it }, Modifier.fillMaxWidth(), label = { Text("Button label") }, singleLine = true)
@@ -215,7 +289,7 @@ class MainActivity : ComponentActivity() {
                                     frequency,
                                     { frequency = it.filter(Char::isDigit).take(6) },
                                     Modifier.fillMaxWidth(),
-                                    label = { Text("Carrier frequency in Hz (default 38000)") },
+                                    label = { Text("Carrier frequency for RAW captures (Hz)") },
                                     singleLine = true
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -232,29 +306,32 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     }
-                                    Button(onClick = {
-                                        val carrier = frequency.toIntOrNull()
-                                        if (carrier == null || carrier !in 30000..60000 || commandLabel.isBlank()) {
-                                            status = "Enter a button label and carrier between 30000 and 60000 Hz."
+                                    Button(enabled = decodedCapture?.protocol != "NEC_REPEAT", onClick = {
+                                        val carrierInput = frequency.toIntOrNull()
+                                        if ((decodedCapture == null && (carrierInput == null || carrierInput !in 30000..60000)) || commandLabel.isBlank()) {
+                                            status = "Enter a button label and a RAW carrier between 30000 and 60000 Hz."
                                         } else {
                                             val profileId = slug(brand) + "-" + slug(model.ifBlank { "unspecified-model" })
                                             val commandId = slug(commandLabel)
                                             val oldProfile = profileStore.find(profileId)
+                                            val protocol = decodedCapture?.protocol ?: "RAW"
+                                            val command = decodedCapture?.let { frame ->
+                                                frame.toRawCommand(commandId, commandLabel.trim(), capture, frame.carrierFrequencyHz)
+                                            } ?: RawIrCommand(commandId, commandLabel.trim(), carrierInput!!, capture)
                                             val newProfile = IrRemoteProfile(
                                                 id = profileId,
                                                 brand = brand.ifBlank { "Unknown" },
                                                 model = model.ifBlank { "Unspecified" },
                                                 category = category,
-                                                protocol = "RAW",
+                                                protocol = protocol,
                                                 verification = VerificationStatus.EXPERIMENTAL,
-                                                commands = oldProfile?.commands.orEmpty().filterNot { it.id == commandId } +
-                                                    RawIrCommand(commandId, commandLabel.trim(), carrier, capture)
+                                                commands = oldProfile?.commands.orEmpty().filterNot { it.id == commandId } + command
                                             )
                                             runCatching {
                                                 profileStore.save(newProfile)
                                                 profiles = profileStore.loadAll()
                                                 capture = emptyList()
-                                                status = "Saved experimental profile: " + profileId
+                                                status = "Saved " + protocol + " command in experimental profile " + profileId
                                             }.onFailure {
                                                 status = "Profile save failed: " + it.message
                                             }
@@ -267,15 +344,42 @@ class MainActivity : ComponentActivity() {
 
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Saved remotes", style = MaterialTheme.typography.titleMedium)
-                            if (profiles.isEmpty()) Text("No profiles saved yet.")
-                            profiles.forEach { profile ->
+                            Text("Remote profiles", style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/json")) }) {
+                                    Text("Import JSON")
+                                }
+                                Text(profiles.size.toString() + " saved", style = MaterialTheme.typography.bodySmall)
+                            }
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Search brand, model, category or protocol") },
+                                singleLine = true
+                            )
+                            if (visibleProfiles.isEmpty()) Text("No matching profiles. Learn a remote or import a JSON profile.")
+                            visibleProfiles.forEach { profile ->
                                 Text(profile.brand + " • " + profile.model, style = MaterialTheme.typography.titleSmall)
                                 Text(
-                                    profile.category.name.replace('_', ' ') + " • " + profile.commands.size +
-                                        " commands • " + profile.verification.name,
+                                    profile.category.name.replace('_', ' ') + " • " + profile.protocol +
+                                        " • " + profile.commands.size + " commands • " + profile.verification.name,
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(onClick = {
+                                        profileToExport = profile
+                                        exportLauncher.launch(profile.id + ".json")
+                                    }) { Text("Export") }
+                                    OutlinedButton(onClick = {
+                                        if (profileStore.delete(profile.id)) {
+                                            profiles = profileStore.loadAll()
+                                            status = "Deleted profile " + profile.id
+                                        } else {
+                                            status = "Could not delete profile."
+                                        }
+                                    }) { Text("Delete") }
+                                }
                                 profile.commands.forEach { command ->
                                     OutlinedButton(enabled = !busy && !learning, onClick = {
                                         busy = true
@@ -306,8 +410,7 @@ class MainActivity : ComponentActivity() {
                             Text(BrandCatalog.targets.joinToString(" • ") { it.name }, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-
-                    Text("NovaRemote 0.2.0 • Captured profiles remain experimental until exact-model testing.", style = MaterialTheme.typography.labelSmall)
+                    Text("NovaRemote 0.3.0 • Protocol match is not a hardware-verified model profile.", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

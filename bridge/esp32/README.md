@@ -1,4 +1,4 @@
-# NovaRemote ESP32 IR bridge 0.2.0
+# NovaRemote ESP32 IR bridge 0.3.0
 
 ## Hardware
 
@@ -31,6 +31,8 @@ All endpoints require Authorization: Bearer TOKEN.
 - GET /api/v1/ir/learn/latest
 - POST /api/v1/ir/learn/cancel
 
+The send request accepts frequencyHz, rawMicros, repeatCount, repeatMode and repeatIntervalMs. FULL_FRAME repeats the initial frame; NEC_REPEAT_FRAME sends the short NEC hold-repeat marker after the initial frame.
+
 The bridge advertises DNS-SD service _novaremote._tcp on port 80. Discovery can fail on guest networks or APs with multicast/client isolation; manual private-IP entry remains available.
 
 ## Limits
@@ -38,8 +40,9 @@ The bridge advertises DNS-SD service _novaremote._tcp on port 80. Discovery can 
 - Raw frame: 2–512 timings, each 50–131070 microseconds.
 - Total frame duration: at most 2 seconds.
 - Carrier: 30–60 kHz.
+- Repeat count: 0–10; interval: 20–1000 ms.
 - Learning timeout: 20 seconds.
-- Send interval: at least 120 ms between accepted frames.
+- Send interval: at least 120 ms between accepted requests.
 
 ## Security
 

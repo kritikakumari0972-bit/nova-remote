@@ -2,6 +2,8 @@ package com.novaremote.transport
 
 import android.content.Context
 import android.hardware.ConsumerIrManager
+import com.novaremote.domain.IrProtocolEngine
+import com.novaremote.domain.IrRepeatMode
 import com.novaremote.domain.RawIrCommand
 import com.novaremote.domain.TransportKind
 import kotlinx.coroutines.Dispatchers
@@ -29,16 +31,22 @@ class AndroidIrTransport(context: Context) : IrTransport {
         if (status().supportedFrequencyRangesHz.none { command.frequencyHz in it }) {
             return@withContext IrSendResult.Rejected("Phone does not report support for " + command.frequencyHz + " Hz.")
         }
-        if (command.timingsMicros.size !in 2..1024 ||
+        if (command.timingsMicros.size !in 2..512 ||
             command.timingsMicros.any { it !in 50..131070 } ||
             command.timingsMicros.sumOf { it.toLong() } > 2000000L ||
-            command.repeatCount !in 0..10) {
-            return@withContext IrSendResult.Rejected("IR timing data failed validation.")
+            command.repeatCount !in 0..10 ||
+            command.repeatIntervalMillis !in 20..1000) {
+            return@withContext IrSendResult.Rejected("IR timing or repeat data failed validation.")
         }
         try {
             repeat(command.repeatCount + 1) { index ->
-                ir.transmit(command.frequencyHz, command.timingsMicros.toIntArray())
-                if (index < command.repeatCount) delay(100)
+                val frame = if (index > 0 && command.repeatMode == IrRepeatMode.NEC_REPEAT_FRAME) {
+                    IrProtocolEngine.encodeNecRepeatFrame()
+                } else {
+                    command.timingsMicros
+                }
+                ir.transmit(command.frequencyHz, frame.toIntArray())
+                if (index < command.repeatCount) delay(command.repeatIntervalMillis.toLong())
             }
             IrSendResult.Sent
         } catch (exception: Exception) {
