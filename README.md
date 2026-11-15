@@ -10,7 +10,7 @@ The manufacturer catalogue is a research index, not a verified compatibility mat
 
 ## Android build
 
-Open in Android Studio with JDK 17+ and Android SDK 37. Tooling: AGP 9.5.0, Kotlin 2.4.21, Gradle 9.7.0, Compose BOM 2026.09.00. CI runs assembleDebug and testDebugUnitTest.
+Open in Android Studio with JDK 17+ and Android SDK 36. Tooling: AGP 9.5.0, Kotlin 2.4.21, Gradle 9.7.0, Compose BOM 2026.09.00, Activity Compose 1.13.0. CI runs assembleDebug and testDebugUnitTest.
 
 ## ESP32 build
 
