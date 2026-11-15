@@ -21,7 +21,7 @@ android {
 }
 dependencies {
     // Compose 1.11.x generation remains compatible with the API 36 CI SDK.
-    val composeBom = platform("androidx.compose:compose-bom:2026.07.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.compose.ui:ui")
